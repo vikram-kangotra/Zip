@@ -2,71 +2,75 @@
 
 #include <vector>
 #include <tuple>
+#include <functional>
 
 template <typename T>
-concept Container = 
+concept ZipIterable =
     requires(T t) {
-        typename T::value_type;
+        typename T::value_type; 
         typename T::iterator;
         t.begin();
         t.end();
         t.size();
     };
 
-template <Container... Ts>
+template <ZipIterable... Ts>
 class zip {
     private:
-    	using tuple_type = std::tuple<typename Ts::value_type...>;
+        
+        using tuple_container = std::tuple<typename Ts::value_type&...>;
         using iterator_container = std::tuple<typename Ts::iterator...>;
 
-        template<unsigned...s> struct seq { typedef seq<s...> type; };
-        template<unsigned max, unsigned... s> struct make_seq:make_seq<max-1, max-1, s...> {};
-        template<unsigned...s> struct make_seq<0, s...>:seq<s...> {};
-        
+        template <unsigned... S> struct seq { using type = seq<S...>; };
+        template <unsigned max, unsigned... S> struct make_seq : make_seq<max-1, max-1, S...> {};
+        template <unsigned... S> struct make_seq<0, S...> : seq<S...> {};
+
         template <unsigned... S>
-        void advance_iterator(seq<S...>, iterator_container& it) {
+        void advance_iterators(seq<S...>, iterator_container& it) {
             (++std::get<S>(it), ...);
         }
 
         template <typename... Rs>
-        auto advance_iterator(std::tuple<Rs...>& it) {
-            advance_iterator(make_seq<sizeof...(Rs)>(), it);
+        void advance_iterators(std::tuple<Rs...>& it) {
+            advance_iterators( make_seq<sizeof...(Rs)>(), it);
         }
 
         template <unsigned... S>
         auto make_tuple_from(seq<S...>, iterator_container& it) {
-            return std::make_tuple(*std::get<S>(it)...);
+            return std::make_tuple(std::ref(*std::get<S>(it))...);
         }
-
-        template<typename... Rs>
+        
+        template <typename... Rs>
         auto make_tuple_from(std::tuple<Rs...>& it) {
-          return make_tuple_from(make_seq<sizeof...(Rs)>(), it);
+            return make_tuple_from( make_seq<sizeof...(Rs)>(), it );
         }
 
     public:
-        constexpr zip(Ts&... containers) {
-        	const auto size = minSize(containers...);
+
+        zip(Ts&... containers) {
             iterator_container iterators = { containers.begin()... };
-            for ( size_t i = 0; i < size; ++i ) {
-            	zip_container.emplace_back( make_tuple_from(iterators) );
-                advance_iterator(iterators);
+            const size_t size = minSize( containers... );
+            for (size_t i = 0; i < size; ++i) {
+                zip_containers.emplace_back( make_tuple_from(iterators) ); 
+                advance_iterators( iterators );
             }
         }
-         
-        size_t minSize(Ts&... container) {
-        	std::vector arr = { container.size()... };
-            std::sort(arr.begin(), arr.end());
-            return arr[0];
+
+        size_t minSize(Ts&... containers) {
+            std::vector vec = { containers.size()... };
+            std::sort(vec.begin(), vec.end());
+            return vec[0];
         }
-        
+
         auto begin() {
-        	return zip_container.begin();
+            return zip_containers.begin();
         }
-        
+
         auto end() {
-        	return zip_container.end();
+            return zip_containers.end();
         }
 
     private:
-        std::vector<tuple_type> zip_container;
+        
+        std::vector<tuple_container> zip_containers;
 };
