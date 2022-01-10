@@ -18,15 +18,15 @@ template <ZipIterable... Ts>
 class zip {
     private:
         
-        using tuple_container = std::tuple<typename Ts::value_type&...>;
-        using iterator_container = std::tuple<typename Ts::iterator...>;
+        using valueTuple = std::tuple<typename Ts::value_type&...>;
+        using iteratorContainer = std::tuple<typename Ts::iterator...>;
 
         template <unsigned... S> struct seq { using type = seq<S...>; };
         template <unsigned max, unsigned... S> struct make_seq : make_seq<max-1, max-1, S...> {};
         template <unsigned... S> struct make_seq<0, S...> : seq<S...> {};
 
         template <unsigned... S>
-        void advance_iterators(seq<S...>, iterator_container& it) {
+        void advance_iterators(seq<S...>, iteratorContainer& it) {
             (++std::get<S>(it), ...);
         }
 
@@ -36,7 +36,7 @@ class zip {
         }
 
         template <unsigned... S>
-        auto make_tuple_from(seq<S...>, iterator_container& it) {
+        auto make_tuple_from(seq<S...>, iteratorContainer& it) {
             return std::make_tuple(std::ref(*std::get<S>(it))...);
         }
         
@@ -48,7 +48,7 @@ class zip {
     public:
 
         zip(Ts&... containers) {
-            iterator_container iterators = { containers.begin()... };
+            iteratorContainer iterators = { containers.begin()... };
             const size_t size = minSize( containers... );
             for (size_t i = 0; i < size; ++i) {
                 zip_containers.emplace_back( make_tuple_from(iterators) ); 
@@ -72,5 +72,5 @@ class zip {
 
     private:
         
-        std::vector<tuple_container> zip_containers;
+        std::vector<valueTuple> zip_containers;
 };
